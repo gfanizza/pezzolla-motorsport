@@ -14,10 +14,15 @@
 
 <header class="hud">
   <a class="brand" href="#" data-goto="0">PEZZOLLA <span>MOTORSPORT</span></a>
-  <nav class="lanes" aria-label="Scegli la corsia">
-    <button type="button" data-lane="club" class="active">MR Club</button>
-    <button type="button" data-lane="racing">MR Racing</button>
-  </nav>
+  <div class="hud-r">
+    <button type="button" id="engineBtn" class="eng" aria-pressed="false" title="Suono motore V10 (segue la velocità di scroll)">
+      <i aria-hidden="true"><span></span><span></span><span></span><span></span></i><b>Motore off</b>
+    </button>
+    <nav class="lanes" aria-label="Scegli la corsia">
+      <button type="button" data-lane="club" class="active">MR Club</button>
+      <button type="button" data-lane="racing">MR Racing</button>
+    </nav>
+  </div>
 </header>
 <div class="progress" aria-hidden="true"><i id="bar"></i></div>
 
@@ -231,6 +236,7 @@
 <div id="scroller" aria-hidden="true"></div>
 
 <script src="assets/vendor/three.min.js"></script>
+<script src="audio.js"></script>
 <script src="main.js"></script>
 </body>
 </html>
