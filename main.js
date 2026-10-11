@@ -314,34 +314,37 @@
     };
     const box = (w, h, l, x, y, z, mat, edges) => addMesh(new THREE.BoxGeometry(w, h, l), x, y, z, mat, edges);
 
-    // profilo laterale a cuneo (z avanti, y alto), estruso in larghezza
-    const prof = new THREE.Shape();
-    const pts = [[2.4, 0.3], [2.35, 0.5], [1.0, 0.72], [0.35, 1.06], [-0.35, 1.08], [-1.5, 0.86], [-2.3, 0.82], [-2.38, 0.3]];
-    prof.moveTo(pts[0][0], pts[0][1]); pts.slice(1).forEach(q => prof.lineTo(q[0], q[1])); prof.closePath();
-    const body = new THREE.ExtrudeGeometry(prof, { depth: 1.9, bevelEnabled: false });
-    body.translate(0, 0, -0.95); body.rotateY(-Math.PI / 2);
-    addMesh(body, 0, 0, 0);
-
-    // fari posteriori a Y: barra + traversa discendente verso l'esterno
+    const slab = (pts, depth, z0) => {              // sagoma vista da dietro (x,y), estrusa in lunghezza
+      const sh = new THREE.Shape(); sh.moveTo(pts[0][0], pts[0][1]);
+      pts.slice(1).forEach(q => sh.lineTo(q[0], q[1])); sh.closePath();
+      const g = new THREE.ExtrudeGeometry(sh, { depth, bevelEnabled: false }); g.translate(0, 0, z0);
+      return addMesh(g, 0, 0, 0);
+    };
+    // scocca bassa: spalle larghe, fianchi che si stringono verso il basso
+    slab([[-0.86, 0.16], [0.86, 0.16], [1.0, 0.5], [1.0, 0.8], [0.78, 0.92], [-0.78, 0.92], [-1.0, 0.8], [-1.0, 0.5]], 4.5, -2.3);
+    // abitacolo stretto, più avanti
+    slab([[-0.66, 0.92], [0.66, 0.92], [0.42, 1.2], [-0.42, 1.2]], 2.0, -0.9);
+    // cofano motore piatto che scende verso la coda, con feritoie
+    const deck = box(1.3, 0.05, 1.5, 0, 0.98, -1.55); deck.rotation.x = 0.16;
+    const slat = new THREE.MeshBasicMaterial({ color: ACCENT });
+    for (let i = 0; i < 4; i++) box(0.8 - i * 0.05, 0.018, 0.03, 0, 1.03 - i * 0.012, -1.1 - i * 0.28, slat, false).rotation.x = 0.16;
+    // fari posteriori a Y agli angoli: barra + traversa discendente verso l'esterno
     for (const sx of [-1, 1]) {
-      box(0.78, 0.07, 0.05, sx * 0.62, 0.8, -2.4, lamp, false);
-      const prong = box(0.06, 0.34, 0.05, sx * 0.98, 0.66, -2.4, lamp, false);
-      prong.rotation.z = sx * 0.45;
-      box(0.2, 0.06, 0.2, sx * 1.12, 1.02, 0.55);   // specchietti
+      box(0.8, 0.07, 0.05, sx * 0.55, 0.8, -2.33, lamp, false).rotation.z = sx * -0.04;
+      const prong = box(0.06, 0.32, 0.05, sx * 0.93, 0.66, -2.33, lamp, false);
+      prong.rotation.z = sx * 0.5;
+      box(0.2, 0.06, 0.2, sx * 1.1, 1.06, 0.2);      // specchietti alti
     }
-    // diffusore con pinne
-    box(1.5, 0.12, 0.5, 0, 0.26, -2.25);
-    for (const x of [-0.5, -0.17, 0.17, 0.5]) box(0.04, 0.2, 0.5, x, 0.32, -2.3);
-    // scarico unico esagonale
-    addMesh(new THREE.CylinderGeometry(0.26, 0.26, 0.3, 6), 0, 0.48, -2.4, fill, true, Math.PI / 2);
-    // alettone su due piloni
-    box(1.9, 0.05, 0.55, 0, 1.12, -2.1);
-    box(0.06, 0.28, 0.3, 0.55, 0.98, -2.05); box(0.06, 0.28, 0.3, -0.55, 0.98, -2.05);
-    // ruote (posteriori più larghe)
-    const rear = new THREE.CylinderGeometry(0.44, 0.44, 0.5, 16), front = new THREE.CylinderGeometry(0.4, 0.4, 0.55, 16);
+    // diffusore a trapezio con pinne e scarico unico esagonale
+    box(1.5, 0.12, 0.45, 0, 0.25, -2.25);
+    for (const x of [-0.55, -0.2, 0.2, 0.55]) box(0.035, 0.2, 0.45, x, 0.34, -2.28);
+    const hex = new THREE.CylinderGeometry(0.24, 0.24, 0.28, 6); hex.rotateY(Math.PI / 6);
+    addMesh(hex, 0, 0.45, -2.35, fill, true, Math.PI / 2).scale.z = 0.6;
+    // gomme: dietro le spalle, sporgono appena
+    const rear = new THREE.CylinderGeometry(0.44, 0.44, 0.5, 16), front = new THREE.CylinderGeometry(0.4, 0.4, 0.5, 16);
     for (const sx of [-1, 1]) {
-      addMesh(rear, sx * 1.05, 0.44, -1.5, fill, true, 0, Math.PI / 2);
-      addMesh(front, sx * 1.06, 0.4, 1.5, fill, true, 0, Math.PI / 2);
+      addMesh(rear, sx * 1.0, 0.44, -1.5, fill, true, 0, Math.PI / 2);
+      addMesh(front, sx * 0.98, 0.4, 1.4, fill, true, 0, Math.PI / 2);
     }
     // bagliore dei fari
     const gc = document.createElement('canvas'); gc.width = gc.height = 64;
@@ -349,7 +352,7 @@
     gr.addColorStop(0, 'rgba(255,90,50,1)'); gr.addColorStop(1, 'rgba(255,90,50,0)');
     gg.fillStyle = gr; gg.fillRect(0, 0, 64, 64);
     const gm = new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(gc), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false });
-    for (const x of [-0.75, 0.75]) { const sp = new THREE.Sprite(gm); sp.position.set(x, 0.74, -2.5); sp.scale.set(1.0, 0.5, 1); car.add(sp); }
+    for (const x of [-0.75, 0.75]) { const sp = new THREE.Sprite(gm); sp.position.set(x, 0.78, -2.45); sp.scale.set(1.0, 0.5, 1); car.add(sp); }
     car.scale.setScalar(1.8);
   }
   scene.add(car);
