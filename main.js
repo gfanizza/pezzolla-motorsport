@@ -58,7 +58,7 @@
     e.preventDefault();
     const d = new FormData(form);
     const ok = String(d.get('nome')).trim() && /\S+@\S+\.\S+/.test(String(d.get('email')));
-    msg.textContent = ok ? 'Grazie. Ti ricontatteremo a breve.' : 'Inserisci nome ed email valida.';
+    msg.textContent = ok ? 'Grazie. Il tuo referente ti ricontatterà a breve.' : 'Inserisci nome ed email valida.';
   });
 
   function updateUI(p) {
