@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pezzolla Motorsport — Motorsport Room Club &amp; Racing</title>
+<meta name="description" content="Pezzolla Motorsport: Motorsport Room Club e Motorsport Room Racing. Esperienza in pista, Academy, Car Management, Scuderia.">
+<meta name="theme-color" content="#0f0f0e">
+<link rel="stylesheet" href="style.css">
+</head>
+<body class="show-draft">
+
+<canvas id="gl" aria-hidden="true"></canvas>
+
+<header class="hud">
+  <a class="brand" href="#" data-goto="0">PEZZOLLA <span>MOTORSPORT</span></a>
+  <nav class="lanes" aria-label="Scegli la corsia">
+    <button type="button" data-lane="club" class="active">MR Club</button>
+    <button type="button" data-lane="racing">MR Racing</button>
+  </nav>
+</header>
+<div class="progress" aria-hidden="true"><i id="bar"></i></div>
+
+<!-- HERO VIDEO -->
+<section id="hero" aria-label="Video di presentazione">
+  <video id="heroVideo" muted loop playsinline preload="auto" poster=""></video>
+  <div class="hero-ph" id="heroPh">
+    <div class="ph-play" aria-hidden="true"></div>
+    <p>Video in arrivo</p>
+    <small>assets/video/pezzolla-motorsport.mp4</small>
+  </div>
+  <div class="hero-shade"></div>
+  <div class="hero-copy">
+    <p class="kicker">Motorsport Room Club / 2027</p>
+    <h1>Private Motorsport<br>Concierge &amp; Club</h1>
+  </div>
+  <button type="button" id="soundBtn" class="sound" disabled>Attiva audio</button>
+  <div class="scroll-hint" aria-hidden="true"><span>Scorri</span><i></i></div>
+</section>
+
+<main id="panels">
+
+  <!-- PARTENZA -->
+  <section class="panel" data-in="0.045" data-out="0.15">
+    <div class="card">
+      <h2 class="xl">«Tu scegli<br>il tuo livello.<br>Noi pensiamo<br>a tutto il resto.»</h2>
+      <p class="tag">Motorsport Room Club — il club che pensa per te.</p>
+    </div>
+  </section>
+
+  <section class="panel right" data-in="0.15" data-out="0.215">
+    <div class="card">
+      <h2>The Club</h2>
+      <p class="lead">Un ecosistema integrato. Sei dimensioni. Un'unica visione.</p>
+    </div>
+  </section>
+
+  <!-- BIVIO -->
+  <section class="panel center" id="fork" data-in="0.215" data-out="0.31">
+    <div class="card wide">
+      <p class="kicker">Il circuito si divide</p>
+      <h2>Scegli la tua corsia.</h2>
+      <div class="lane-pick">
+        <button type="button" class="lane-btn" data-pick="club">
+          <b>MR Club</b>
+          <span>Experience · Academy · Car Management · Scuderia</span>
+          <em>→</em>
+        </button>
+        <button type="button" class="lane-btn light" data-pick="racing">
+          <b>MR Racing</b>
+          <span>Competere. Raccontare. Coinvolgere.</span>
+          <em>→</em>
+        </button>
+      </div>
+      <p class="hint">Oppure continua a scorrere: entrerai in MR Club.</p>
+    </div>
+  </section>
+
+  <!-- CORSIA CLUB -->
+  <section class="panel" data-branch="club" data-in="0.310" data-out="0.379">
+    <div class="card">
+      <p class="kicker">MR Club · Experience</p>
+      <h2>Non una giornata.<br>Un percorso.</h2>
+      <p class="lead">L'essenza del Motorsport Room Club. Il punto di ingresso.</p>
+      <p class="tag">Tecnica · Coaching · Hospitality · Logistica</p>
+      <p>Ogni dettaglio è curato. Ogni momento è costruito per evolvere il tuo rapporto con la guida e con la vettura.</p>
+    </div>
+  </section>
+
+  <section class="panel center" data-branch="club" data-in="0.379" data-out="0.447">
+    <div class="card wide">
+      <h2>Before / During / After</h2>
+      <div class="cols">
+        <div><h3>Before — T-30 / T-15</h3><p>Briefing tecnico, logistica coordinata e preparazione mentale. Ogni dettaglio è già gestito prima che tu arrivi.</p></div>
+        <div><h3>During — In pista</h3><p>Coaching in tempo reale, hospitality esclusiva e performance al limite. La giornata in pista come non l'hai mai vissuta.</p></div>
+        <div><h3>After — Follow-up</h3><p>Debriefing dati, analisi telemetria e report personalizzato. Il lavoro continua anche dopo che il casco è tolto.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel right" data-branch="club" data-in="0.447" data-out="0.516">
+    <div class="card">
+      <p class="kicker">MR Club · Academy</p>
+      <h2>Academy</h2>
+      <p class="lead">Due percorsi. Una sola destinazione: la padronanza.</p>
+      <div class="cols two">
+        <div><h3>— Basic</h3><p>Il punto di partenza per chi vuole vivere la pista con consapevolezza. Fondamentali di guida, briefing tecnico, coaching individuale e gestione della vettura in condizioni reali.</p></div>
+        <div><h3>— Advanced</h3><p>Per chi è già oltre. Analisi telemetrica, sessioni con simulatore, debriefing approfondito e programmazione stagionale personalizzata.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" data-branch="club" data-in="0.516" data-out="0.584">
+    <div class="card">
+      <p class="kicker">MR Club · Car Management</p>
+      <h2>Car<br>Management</h2>
+      <p class="lead">La Vettura al Centro. Ogni aspetto della tua vettura è coordinato da un unico referente.</p>
+      <p>Manutenzione programmata · Preparazione tecnica · Trasporto e logistica · Assistenza in pista · Gestione documentale · Revisione post-evento. Un sistema integrato, invisibile, continuo.</p>
+    </div>
+  </section>
+
+  <section class="panel right" data-branch="club" data-in="0.584" data-out="0.653">
+    <div class="card">
+      <p class="kicker">MR Club · Digital Club</p>
+      <h2>Digital Club</h2>
+      <p class="lead">Il tuo ecosistema connesso. Tutto sotto controllo, ovunque tu sia.</p>
+      <div class="cols two">
+        <div><h3>Dashboard &amp; Dati</h3><p>Accedi in tempo reale allo stato della tua vettura, alla cronologia dei lavori, ai report tecnici e all'andamento delle sessioni in pista.</p></div>
+        <div><h3>Coaching &amp; Calendario</h3><p>Il tuo percorso Academy, i feedback del coach, le tappe del calendario 2027 e le prenotazioni attive.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" data-branch="club" data-in="0.653" data-out="0.721">
+    <div class="card">
+      <p class="kicker">Calendario</p>
+      <h2>7 tappe — 2027</h2>
+      <ul class="steps">
+        <li><b>01 · Primavera</b> Il calendario si apre. Briefing tecnico, shakedown e ingresso ufficiale nel Club 2027.</li>
+        <li><b>02 · Escalation</b> Coaching avanzato, analisi dati e prima sessione Academy.</li>
+        <li><b>03—04 · Cuore di stagione</b> Hospitality premium, sessioni back-to-back, simulatore e Car Management attivo.</li>
+        <li><b>05—07 · Finale di stagione</b> Gala esclusivo, report annuale personalizzato e accesso anticipato al calendario 2028.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="panel right" data-branch="club" data-in="0.721" data-out="0.790">
+    <div class="card">
+      <p class="kicker">MR Club · Scuderia &amp; Corporate</p>
+      <h2>Scuderia</h2>
+      <p class="lead">Il livello più elevato: competizione, identità di squadra e presenza ufficiale nei circuiti.</p>
+      <h3>— Corporate</h3>
+      <p>Hospitality, partnership e format premium per aziende e clienti d'élite. Paddock experience e format esclusivi per partner e clienti VIP.</p>
+    </div>
+  </section>
+
+  <!-- CORSIA RACING (bozza) -->
+  <section class="panel" data-branch="racing" data-in="0.310" data-out="0.430">
+    <div class="card light">
+      <p class="kicker">MR Racing <span class="chip draft">bozza · da validare</span></p>
+      <h2>Competere.<br>Raccontare.<br>Coinvolgere.</h2>
+      <p class="lead">La divisione agonistica di Motorsport Room. Prima specializzazione proposta: hillclimb, la velocità in salita.</p>
+    </div>
+  </section>
+
+  <section class="panel right" data-branch="racing" data-in="0.430" data-out="0.550">
+    <div class="card light">
+      <p class="kicker">Sport <span class="chip draft">bozza · da validare</span></p>
+      <h2>Sport</h2>
+      <p class="lead">Un programma sportivo sostenibile: una vettura iniziale e un calendario selezionato.</p>
+      <p>Piloti, vetture, supporto tecnico e logistica. Vettura, categoria e piloti: in definizione.</p>
+    </div>
+  </section>
+
+  <section class="panel" data-branch="racing" data-in="0.550" data-out="0.670">
+    <div class="card light">
+      <p class="kicker">Partner <span class="chip draft">bozza · da validare</span></p>
+      <h2>Partner<br>e sponsor</h2>
+      <p class="lead">Partner tecnici, sponsor e un dossier di visibilità.</p>
+      <p>Identità coerente con Motorsport Room, più tecnica, leggibile e dinamica.</p>
+    </div>
+  </section>
+
+  <section class="panel right" data-branch="racing" data-in="0.670" data-out="0.790">
+    <div class="card light">
+      <p class="kicker">Media &amp; Esperienze <span class="chip draft">bozza · da validare</span></p>
+      <h2>Racconta la stagione.<br>Vivila dal paddock.</h2>
+      <p class="lead">Contenuti di stagione: preparazione, gare, interviste, report per i partner.</p>
+      <p>Club e hospitality per i soci, quando applicabile.</p>
+    </div>
+  </section>
+
+  <!-- TRAGUARDO -->
+  <section class="panel center" data-in="0.810" data-out="0.895">
+    <div class="card wide">
+      <p class="kicker">Traguardo</p>
+      <h2>The Club Promise</h2>
+      <div class="cols">
+        <div><h3>01 · Un solo referente.</h3><p>Un unico punto di contatto dedicato, sempre presente, che conosce te e la tua vettura.</p></div>
+        <div><h3>02 · Una visibilità completa.</h3><p>Accesso in tempo reale a ogni dettaglio: agenda, vettura, performance, lavori e documenti.</p></div>
+        <div><h3>03 · Una relazione continuativa.</h3><p>Non un servizio episodico. Un ecosistema costruito nel tempo, attorno a te.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel center" id="contact" data-in="0.895" data-out="1.01">
+    <div class="card wide">
+      <h2 class="md">Il vero prodotto non è la singola esperienza. È la relazione continuativa.</h2>
+      <form id="contactForm" novalidate>
+        <label>Nome<input name="nome" autocomplete="name" required></label>
+        <label>Email<input name="email" type="email" autocomplete="email" required></label>
+        <label>Mi interessa
+          <select name="interesse">
+            <option>MR Club</option>
+            <option>MR Racing</option>
+            <option>Entrambi</option>
+          </select>
+        </label>
+        <label class="full">Messaggio<textarea name="messaggio" rows="3"></textarea></label>
+        <button type="submit" class="cta">Parliamone</button>
+        <p class="form-msg" id="formMsg" role="status"></p>
+      </form>
+      <p class="foot">Motorsport Room by Pezzolla — Automotive &amp; Motorsport Solutions</p>
+    </div>
+  </section>
+
+</main>
+
+<div id="scroller" aria-hidden="true"></div>
+
+<script src="assets/vendor/three.min.js"></script>
+<script src="main.js"></script>
+</body>
+</html>
