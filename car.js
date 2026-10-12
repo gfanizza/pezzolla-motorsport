@@ -201,6 +201,7 @@
       hexM: STD({ color: 0xffffff, map: hex, alphaTest: 0.5, side: THREE.DoubleSide, roughness: 0.5, metalness: 0.6 }),
       heat: new THREE.MeshBasicMaterial({ color: new THREE.Color(1.4, 0.35, 0.08) }),
       lamp: new THREE.MeshBasicMaterial({ color: new THREE.Color(3, 2.8, 2.4) }),
+      rev: new THREE.MeshBasicMaterial({ color: new THREE.Color(0.06, 0.06, 0.07) }),     // fanali di retromarcia (spenti: lente scura)
     };
     const group = new THREE.Group(), body = new THREE.Group(); group.add(body);
     const add = (geo, mat, parent) => { const m = new THREE.Mesh(geo, mat); m.castShadow = true; m.receiveShadow = true; (parent || body).add(m); return m; };
@@ -255,11 +256,16 @@
     }
 
     /* coda: barra LED, nido d'ape con bagliore del vano motore, scarichi, diffusore a pinne */
-    const tailGlows = [];
+    const tailGlows = [], revGlows = [];
     {
       const zt = -2.322;
       const leds = [box(1.5, 0.042, 0.03, 0, 0.715, zt - 0.006), box(0.04, 0.2, 0.03, -0.77, 0.62, zt - 0.006, 0, 0, 0.06), box(0.04, 0.2, 0.03, 0.77, 0.62, zt - 0.006, 0, 0, -0.06)];
       add(mergeG(leds), mats.led);
+      add(mergeG([box(0.17, 0.05, 0.03, -0.64, 0.335, zt - 0.012), box(0.17, 0.05, 0.03, 0.64, 0.335, zt - 0.012)]), mats.rev);
+      for (const sx of [-1, 1]) {
+        const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(1.8, 1.8, 2.1), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
+        sp.position.set(sx * 0.64, 0.335, zt - 0.16); sp.scale.set(0.6, 0.38, 1); body.add(sp); revGlows.push(sp);
+      }
       add(box(1.58, 0.06, 0.02, 0, 0.715, zt), mats.dark); add(box(1.46, 0.025, 0.03, 0, 0.665, zt - 0.003), mats.dark);
       for (const sx of [-1, 1]) {
         const sp = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(2.4, 0.2, 0.08), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false }));
@@ -329,7 +335,11 @@
     }
 
     /* luci locali + fiamme dallo scarico */
-    const tailLight = new THREE.PointLight(0xff3a22, 1.2, 9); tailLight.position.set(0, 0.5, -3.2); group.add(tailLight);
+    let tailLight = null, revLight = null;
+    if (o.lights !== false) {        // le auto ferme non proiettano luce: meno luci = shader più leggeri
+      tailLight = new THREE.PointLight(0xff3a22, 1.2, 9); tailLight.position.set(0, 0.5, -3.2); group.add(tailLight);
+      revLight = new THREE.PointLight(0xe6eeff, 0, 11); revLight.position.set(0, 0.45, -3.6); group.add(revLight);
+    }
     const flames = [];
     for (const x of [-0.39, -0.17, 0.17, 0.39]) {
       const f = new THREE.Sprite(new THREE.SpriteMaterial({ map: glowTex, color: new THREE.Color(3.2, 1.2, 0.3), blending: THREE.AdditiveBlending, transparent: true, depthWrite: false, fog: false, opacity: 0 }));
@@ -338,11 +348,12 @@
     group.scale.setScalar(o.scale || 1.8);
 
     const tailDim = new THREE.Color(1.5, 0.07, 0.03), tailBright = new THREE.Color(3.0, 0.16, 0.06), tmpC = new THREE.Color();
-    let flameT = 0, spinA = 0;
+    const revOff = new THREE.Color(0.06, 0.06, 0.07), revOn = new THREE.Color(3.6, 3.6, 4.0);
+    let flameT = 0, spinA = 0, rvT = 0;
     return {
       group, body, wheels, mats,
       pop() { flameT = 0.1 + Math.random() * 0.08; },
-      /* s: { dist (m percorsi nel frame), steer (rad), brake 0..1, thr 0..1, roll, pitch, dt } */
+      /* s: { dist (m percorsi nel frame, negativo in retromarcia), steer (rad), brake 0..1, thr 0..1, reverse, roll, pitch, dt } */
       update(s) {
         spinA += (s.dist || 0) / (wheels[0].R * (o.scale || 1.8));
         for (const w of wheels) {
@@ -351,9 +362,13 @@
         }
         body.rotation.x = (s.pitch || 0); body.rotation.z = (s.roll || 0);
         const bl = 0.3 + 0.7 * (s.brake || 0);
-        mats.led.color.copy(tailDim).lerp(tailBright, bl);
+        rvT += ((s.reverse ? 1 : 0) - rvT) * (1 - Math.exp(-(s.dt || 0.016) * 16));
+        mats.led.color.copy(tailDim).lerp(tailBright, bl).multiplyScalar(1 - 0.35 * rvT);          // in retromarcia il rosso si attenua…
+        mats.rev.color.copy(revOff).lerp(revOn, rvT);                                              // …e si accendono i fanali bianchi
+        revGlows.forEach(g => { g.material.opacity = 0.8 * rvT; g.scale.set(0.6 + 0.25 * rvT, 0.38 + 0.15 * rvT, 1); });
+        if (revLight) revLight.intensity = 1.5 * rvT;
         tailGlows.forEach(g => { g.material.opacity = 0.3 + 0.7 * bl; g.scale.set(1.0 + 1.2 * (s.brake || 0), 0.5 + 0.5 * (s.brake || 0), 1); });
-        tailLight.intensity = 0.7 + 2.4 * (s.brake || 0);
+        if (tailLight) tailLight.intensity = (0.7 + 2.4 * (s.brake || 0)) * (1 - 0.4 * rvT);
         mats.heat.color.setRGB(0.9 + 1.2 * (s.thr || 0), 0.22 + 0.4 * (s.thr || 0), 0.05);
         if (flameT > 0) { flameT -= s.dt || 0.016; const a = clamp(flameT / 0.1); flames.forEach((f, i) => { f.material.opacity = a * (i % 2 ? 0.6 : 1); f.scale.set(0.3 + 0.7 * (1 - a), 0.3 + 0.7 * (1 - a), 1); f.position.z = -2.5 - 0.35 * (1 - a); }); }
         else flames.forEach(f => { f.material.opacity = 0; });

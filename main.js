@@ -193,7 +193,8 @@
       const target = spd < 0.02 ? 900 : gear === 0 ? 900 + 6700 * Math.pow(fr, 0.8) : 4300 + 4100 * fr;
       rpmM += (target - rpmM) * (1 - Math.exp(-dt * 8)); rpm = rpmM;
     }
-    hudEl.gear.textContent = spd < 0.02 ? 'N' : String(gear + 1);
+    hudEl.gear.textContent = reverse ? 'R' : spd < 0.02 ? 'N' : String(gear + 1);
+    hudEl.gear.classList.toggle('r', reverse);
     const lit = Math.round(clamp((rpm - 900) / (8400 - 900)) * 24);
     const kids = hudEl.rev.children; for (let i = 0; i < kids.length; i++) kids[i].classList.toggle('on', i < lit);
     const sec = ps < A ? 0 : ps < B ? 1 : 2, txt = sec === 1 ? (branch === 'racing' ? 'MR Racing' : 'MR Club') : SEG[sec][1];
@@ -205,7 +206,7 @@
   const camPos = V(0, 2.6, 6), camLook = V(0, 1.5, -20);
   const tmp = V(0, 0, 0);
   let mx = 0, my = 0, tmx = 0, tmy = 0, roll = 0, fov = 60, last = performance.now();
-  let prevPs = 0, spdS = 0, prevSpdS = 0, brakeS = 0, steerS = 0, accelS = 0;
+  let prevPs = 0, spdS = 0, prevSpdS = 0, brakeS = 0, steerS = 0, accelS = 0, reverse = false;
 
   function build() {
     const t0 = performance.now();
@@ -216,7 +217,7 @@
     // vetture ferme davanti ai box
     const paints = [[0xe9e6df, 0.35, 0.28], [0x8c5a1f, 0.6, 0.3], [0x16181c, 0.5, 0.3]];
     parked = paints.map(([c, m, r], i) => {
-      const k = PZ.buildCar(world, { paint: c, metal: m, rough: r });
+      const k = PZ.buildCar(world, { paint: c, metal: m, rough: r, lights: false });
       k.group.position.set(-27.5 + (i % 2) * 1.2, 0, -168 - i * 15);
       k.group.rotation.y = Math.PI + (i - 1) * 0.04;      // il muso verso -z, come la direzione di marcia
       scene.add(k.group); return k;
@@ -260,6 +261,8 @@
     /* velocità "di guida" dallo scroll → motore e luci dei freni */
     const dps = ps - prevPs;
     const raw = clamp(Math.abs(dps) / dt / 0.12); prevPs = ps;
+    const signed = dps / dt / 0.12;                                       // scroll all'indietro = retromarcia (resta inserita finché non si torna avanti)
+    if (signed < -0.03) reverse = true; else if (signed > 0.03) reverse = false;
     spdS += (raw - spdS) * (1 - Math.exp(-dt * (raw > spdS ? 4 : 2.2)));
     const accel = (spdS - prevSpdS) / dt; prevSpdS = spdS;
     brakeS += (clamp(-accel * 1.2) - brakeS) * (1 - Math.exp(-dt * 10));
@@ -297,7 +300,7 @@
     car.group.lookAt(pC.x + tC.x, 0, pC.z + tC.z);
     const cy = tC.z * tC2.x - tC.x * tC2.z;                      // >0 curva a sinistra
     steerS += (clamp(cy * 70, -1, 1) - steerS) * (1 - Math.exp(-dt * 5));
-    car.update({ dist: dps * mpu, steer: reduce ? 0 : steerS, brake: brakeS, thr: clamp(spdS * 1.4), roll: reduce ? 0 : steerS * 0.02, pitch: reduce ? 0 : brakeS * 0.012 - accelS * 0.006, dt });
+    car.update({ dist: dps * mpu, reverse, steer: reduce ? 0 : steerS, brake: brakeS, thr: clamp(spdS * 1.4), roll: reduce ? 0 : steerS * 0.02, pitch: reduce ? 0 : brakeS * 0.012 - accelS * 0.006, dt });
     if (!reduce && accel < -0.8 && spdS > 0.25 && Math.random() < dt * 5) car.pop();
     for (const p of parked) p.update({ dist: 0, brake: 0, thr: 0, dt });
 
