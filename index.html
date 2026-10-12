@@ -26,6 +26,15 @@
 </header>
 <div class="progress" aria-hidden="true"><i id="bar"></i></div>
 
+<!-- TELEMETRIA: mappa schematica del circuito + dati di guida (decorativa) -->
+<aside class="tel" id="tel" data-lane="club" aria-hidden="true">
+  <svg id="map" viewBox="0 0 112 48" focusable="false"></svg>
+  <div class="tel-sec"><em id="tSec">S1</em><span id="tSecName">Rettilineo</span></div>
+  <div class="tel-spd"><b id="tSpd">000</b><small>km/h</small></div>
+  <div class="tel-rev" id="tRev"></div>
+  <div class="tel-g"><span>Marcia</span><b id="tGear">N</b></div>
+</aside>
+
 <!-- HERO VIDEO -->
 <section id="hero" aria-label="Video di presentazione">
   <video id="heroVideo" muted loop playsinline preload="auto" poster=""></video>
@@ -40,7 +49,7 @@
     <h1>Private Motorsport<br>Concierge &amp; Club</h1>
   </div>
   <button type="button" id="soundBtn" class="sound" disabled>Attiva audio</button>
-  <div class="scroll-hint" aria-hidden="true"><span>Scorri</span><i></i></div>
+  <div class="scroll-hint" aria-hidden="true"><span id="hintTxt">Scorri</span><i></i></div>
 </section>
 
 <main id="panels">
@@ -236,6 +245,10 @@
 <div id="scroller" aria-hidden="true"></div>
 
 <script src="assets/vendor/three.min.js"></script>
+<script src="tex.js"></script>
+<script src="post.js"></script>
+<script src="world.js"></script>
+<script src="car.js"></script>
 <script src="audio.js"></script>
 <script src="main.js"></script>
 </body>
