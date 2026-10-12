@@ -281,8 +281,20 @@
     const gravelGeo = new THREE.BoxGeometry(3.4, 0.05, 3.4); gravelGeo.translate(0, 0.025, 0);
     const poolMat = new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(1.5, 0.82, 0.38), transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
 
-    function buildTrack(curve, key, railFrom, yOff) {
+    /* dove finisce il lato interno di una corsia: oltre quel punto le due corsie sono troppo vicine (guardrail, pali e cordoli
+       del lato rivolto verso l'altra attraverserebbero la sua carreggiata, e l'auto "passerebbe" attraverso il guardrail) */
+    function innerCut(curve, other) {
+      const pts = []; for (let i = 0; i <= 160; i++) { const q = other.getPointAt(i / 160); pts.push(q.x, q.z); }
+      const dist = (p) => { let m = 1e9; for (let i = 0; i < pts.length; i += 2) { const d = Math.hypot(p.x - pts[i], p.z - pts[i + 1]); if (d < m) m = d; } return m; };
+      const f = frameAt(curve, 0.5), q = other.getPointAt(0.5);
+      const sg = ((q.x - f.p.x) * f.sx + (q.z - f.p.z) * f.sz) > 0 ? 1 : -1;           // lato verso l'altra corsia
+      let u = 1; for (let i = 30; i <= 200; i++) { if (dist(curve.getPointAt(i / 200)) < 34) { u = (i - 3) / 200; break; } }   // 34 m = guardrail (14) + carreggiata opposta (8) + margine
+      return { sg, u };
+    }
+
+    function buildTrack(curve, key, railFrom, yOff, cut) {
       const len = curve.getLength(), n = Math.max(40, Math.floor(len / (lo ? 4 : 2.5))), y0 = yOff || 0;
+      const uTo = (sg) => (cut && sg === cut.sg) ? cut.u : 1;                          // fine del lato (interno: si ferma prima)
       const vm = strip(curve, n, -(W / 2 + 9.5), 19, -0.03 + y0, vergeMat, 10, 10);
       strip(curve, n, (W / 2 + 9.5), 19, -0.03 + y0, vergeMat, 10, 10);
       const road = strip(curve, n, 0, W, y0, asphalt, 6, 6); road.renderOrder = 0;
@@ -295,7 +307,7 @@
       const dashes = []; samples(curve, 9, 0, dashes, 0, 1, y0); instanced(dashGeo, dashMat, dashes, { receive: true, far: 300 });
 
       /* lampioni: palo, braccio, testa luminosa, alone e macchia di luce a terra */
-      const poles = [], ps2 = lo ? 66 : 44; samples(curve, ps2, W / 2 + 8, poles); samples(curve, ps2, -(W / 2 + 8), poles);
+      const poles = [], ps2 = lo ? 66 : 44; for (const sg of [-1, 1]) samples(curve, ps2, sg * (W / 2 + 8), poles, (cut && sg === cut.sg) ? Math.max(0.14, railFrom || 0) : 0, uTo(sg));   // lato interno: parte dopo il bivio, come i guardrail
       const lamps = [];
       poles.forEach(p => {
         // il braccio guarda la strada: orientamento lungo la normale verso il centro
@@ -311,14 +323,14 @@
 
       /* guardrail a W con paletti */
       const u0 = railFrom || 0, rn = Math.max(30, Math.floor(len * (1 - u0) / (lo ? 4 : 2)));
-      for (const sg of [-1, 1]) sweep(curve, rn, sg, W / 2 + 6, WBEAM, railMat, u0, 1, 6);
-      for (const sg of [-1, 1]) { const ad = sweep(curve, Math.max(30, Math.floor(len * (1 - u0) / (lo ? 6 : 3))), sg, W / 2 + 6.45, [[0, 0.9, 0], [0, 1.7, 1]], adMat, u0, 1, 11, sg > 0); ad.castShadow = false; }   // pannelli pubblicitari dietro i guardrail (testo leggibile da chi guida: u invertito a destra)
-      const posts = [], pst = lo ? 6 : 4; samples(curve, pst, W / 2 + 6, posts, u0); samples(curve, pst, -(W / 2 + 6), posts, u0);
+      for (const sg of [-1, 1]) { const u1 = uTo(sg); sweep(curve, Math.max(12, Math.floor(rn * (u1 - u0) / (1 - u0))), sg, W / 2 + 6, WBEAM, railMat, u0, u1, 6); }
+      for (const sg of [-1, 1]) { const u1 = uTo(sg); const ad = sweep(curve, Math.max(12, Math.floor(len * (u1 - u0) / (lo ? 6 : 3))), sg, W / 2 + 6.45, [[0, 0.9, 0], [0, 1.7, 1]], adMat, u0, u1, 11, sg > 0); ad.castShadow = false; }   // pannelli pubblicitari dietro i guardrail (testo leggibile da chi guida: u invertito a destra)
+      const posts = [], pst = lo ? 6 : 4; for (const sg of [-1, 1]) samples(curve, pst, sg * (W / 2 + 6), posts, u0, uTo(sg));
       instanced(postGeo, postMat, posts.map(p => ({ ...p, t: p.s })), { cast: true, far: 380, shadowR: 110 });
 
       {   // cordoli
         const cm = LIT({ color: 0xffffff, roughness: 0.55, transparent: !!key, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-        const cb = [], cst = lo ? 3.4 : 2.4; samples(curve, cst, W / 2 + 0.75, cb, 0, 1, y0); samples(curve, cst, -(W / 2 + 0.75), cb, 0, 1, y0);
+        const cb = [], cst = lo ? 3.4 : 2.4; for (const sg of [-1, 1]) samples(curve, cst, sg * (W / 2 + 0.75), cb, 0, uTo(sg), y0);
         cb.forEach(o2 => { o2.c = o2.i % 2 ? white : warm; });
         instanced(curbGeo, cm, cb, { receive: true, far: 380 });
         if (key) laneMats[key].push(cm);
@@ -328,7 +340,7 @@
       const tires = [], gr = [], tn = Math.floor(len / (lo ? 5 : 3.4));
       for (let i = 0; i < tn; i++) {
         const u = (i + 0.5) / tn, sg = outerSign(curve, u);
-        if (!sg || u < (railFrom || 0)) continue;
+        if (!sg || u < (railFrom || 0) || u > uTo(sg)) continue;
         const f = frameAt(curve, u);
         const tx = f.p.x + f.sx * sg * (W / 2 + 4.6), tz = f.p.z + f.sz * sg * (W / 2 + 4.6);
         tires.push({ x: tx, y: 0.28, z: tz, ry: R01() * 6 }, { x: tx, y: 0.84, z: tz, ry: R01() * 6 }, { x: tx, y: 1.4, z: tz, ry: R01() * 6 });
@@ -341,7 +353,9 @@
       }
       for (let i = 0; i < 48; i++) { const f = frameAt(curve, i / 47); allPts.push(f.p.x, f.p.z); }
     }
-    buildTrack(S, null, 0, 0); buildTrack(C, 'C', 0.1, 0); buildTrack(R, 'R', 0.1, 0.004); buildTrack(E, null, 0, 0); buildTrack(X, null, 0, 0);
+    const cutC = innerCut(C, R), cutR = innerCut(R, C);
+    const cuts = { C: cutC, R: cutR };
+    buildTrack(S, null, 0, 0); buildTrack(C, 'C', 0.1, 0, cutC); buildTrack(R, 'R', 0.1, 0.004, cutR); buildTrack(E, null, 0, 0); buildTrack(X, null, 0, 0);
 
     /* alone dei lampioni (un solo Points) e macchie di luce sull'asfalto */
     scene.add(new THREE.Points(
@@ -467,12 +481,16 @@
       tuftGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
       const tuftMat = LIT({ map: tex, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 1, vertexColors: true, envMapIntensity: 0.6, emissive: 0x2a2410, emissiveMap: tex });
       const items = [];
+      const roadPts = []; [S, C, R, E, X].forEach(c => { const n = Math.ceil(c.getLength() / 4); for (let i = 0; i <= n; i++) { const q = c.getPointAt(i / n); roadPts.push(q.x, q.z); } });
+      const onRoad = (x, z) => { for (let k = 0; k < roadPts.length; k += 2) { const dx = roadPts[k] - x, dz = roadPts[k + 1] - z; if (dx * dx + dz * dz < 110) return true; } return false; };   // < 10,5 m da un asse: dentro (o sul bordo di) una carreggiata
       [S, C, R, E, X].forEach(c => {
         const n = Math.floor(c.getLength() * 0.4);
         for (let i = 0; i < n; i++) for (const sg of [-1, 1]) {
           const f = frameAt(c, (i + R01()) / n), off = W / 2 + rnd(2.6, 14);
           if (off < W / 2 + 6.4 && off > W / 2 + 5.4) continue;      // lascia libero il filo dei guardrail
-          items.push({ x: f.p.x + f.sx * sg * off, z: f.p.z + f.sz * sg * off, ry: R01() * 3, sx: rnd(0.8, 1.6), sy: rnd(0.7, 1.4) });
+          const tx = f.p.x + f.sx * sg * off, tz = f.p.z + f.sz * sg * off;
+          if (onRoad(tx, tz)) continue;
+          items.push({ x: tx, z: tz, ry: R01() * 3, sx: rnd(0.8, 1.6), sy: rnd(0.7, 1.4) });
         }
       });
       instanced(tuftGeo, tuftMat, items, { receive: true, far: 150 });
@@ -647,7 +665,7 @@
     const starsObj = scene.getObjectByName('stars');
     const fwd = V(0, 0, -1), snapP = V(0, 0, 0), right = V(0, 0, 0), upL = V(0, 0, 0), tmp = V(0, 0, 0), up = V(0, 1, 0);
     const world = {
-      S, C, R, E, W, boards, laneMats, envTex, mobile, sunSky, sunDir, sun, fogU, skyU, scene, patch, STD, BAS, glowTex, T, merge, frameAt, instanced,
+      S, C, R, E, W, cuts, boards, laneMats, envTex, mobile, sunSky, sunDir, sun, fogU, skyU, scene, patch, STD, BAS, glowTex, T, merge, frameAt, instanced,
       /* camera: ricollocare cielo, luci con ombra agganciata alla griglia, nuvole, pulviscolo e visibilità dei gruppi */
       update(dt, camera, time, targetPos, reduce) {
         sky.position.copy(camera.position); skyU.uTime.value = time;
