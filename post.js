@@ -47,15 +47,21 @@
     void main(){
       vec2 c = vUv - .5; float d2 = dot(c, c);
       /* velocità: sfocatura radiale che cresce verso i bordi (il centro resta nitido) + aberrazione */
-      float m = smoothstep(.04, .34, d2) * uSpeed;
-      vec3 col = vec3(0.);
-      for (int i = 0; i < 6; i++) {
-        float t = float(i) / 5.;
-        vec2 uv = vUv - c * m * .09 * t;
-        vec2 ab = c * (uAb * d2) * (1. + t);
-        col += vec3(texture2D(tScene, uv + ab).r, texture2D(tScene, uv).g, texture2D(tScene, uv - ab).b);
+      vec3 col;
+      if (uSpeed < .01) {                       // da fermi (o con aberrazione spenta) basta un campione: molto più leggero
+        vec2 ab = c * (uAb * d2);
+        col = uAb < 1e-5 ? texture2D(tScene, vUv).rgb : vec3(texture2D(tScene, vUv + ab).r, texture2D(tScene, vUv).g, texture2D(tScene, vUv - ab).b);
+      } else {
+        float m = smoothstep(.04, .34, d2) * uSpeed;
+        col = vec3(0.);
+        for (int i = 0; i < 6; i++) {
+          float t = float(i) / 5.;
+          vec2 uv = vUv - c * m * .09 * t;
+          vec2 ab = c * (uAb * d2) * (1. + t);
+          col += vec3(texture2D(tScene, uv + ab).r, texture2D(tScene, uv).g, texture2D(tScene, uv - ab).b);
+        }
+        col /= 6.;
       }
-      col /= 6.;
       col += texture2D(tBloom, vUv).rgb * uBloom;
       ${rays ? `
       /* raggi crepuscolari: sfocatura radiale del bloom verso il sole */
@@ -94,7 +100,7 @@
     const comp = sm(COMPOSITE(rays), {
       tScene: u(null), tBloom: u(null), tGlow: u(null), uSun: u(new THREE.Vector2(.5, .5)), uRes: u(new THREE.Vector2(1, 1)),
       uBloom: u(o.bloom || 0.6), uRaysK: u(o.raysK || 0.5), uSunVis: u(0), uSpeed: u(0), uTime: u(0), uGrain: u(o.grain || 0.028), uVig: u(o.vig || 0.5),
-      uAb: u(o.ab || 0.05), uExposure: u(1), uPulse: u(0) });
+      uAb: u(o.ab === undefined ? 0.05 : o.ab), uExposure: u(1), uPulse: u(0) });
 
     let rtScene = null, mips = [];
     const dispose = () => { if (rtScene) rtScene.dispose(); mips.forEach(r => r.dispose()); mips = []; };

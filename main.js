@@ -26,7 +26,11 @@
   const engBtn = $('#engineBtn'), Engine = window.EngineAudio;
   const hint = $('#hintTxt'), tel = $('#tel');
 
+  /* telefono: percorso molto più lungo (un colpo di dito salta un pannello) e velocità normalizzata */
+  if (mobile) $('#scroller').style.height = 'max(3000vh, 24000px)';
+  let spdK = 1;
   function scrollMax() { return document.documentElement.scrollHeight - innerHeight; }
+  function calcSpd() { spdK = Math.max(1, scrollMax() / (13 * innerHeight)); }
   function readScroll() { pt = clamp(scrollY / Math.max(1, scrollMax())); }
   function goTo(p) { scrollTo({ top: p * scrollMax(), behavior: reduce ? 'auto' : 'smooth' }); }
   function setBranch(b, jump) {
@@ -44,7 +48,10 @@
   /* video hero: se il file manca, segnaposto */
   video.addEventListener('loadeddata', () => { ph.classList.remove('on'); soundBtn.disabled = false; });
   video.addEventListener('error', () => { ph.classList.add('on'); soundBtn.disabled = true; });
-  video.src = 'assets/video/pezzolla-motorsport.mp4';
+  const conn = navigator.connection || {};
+  const lite = mobile || conn.saveData || /(^|-)(2g|3g)$/.test(conn.effectiveType || '');     // telefono o rete lenta: video più leggero (5,8 MB invece di 11,4)
+  if (lite) video.poster = 'assets/video/poster-mobile.jpg';
+  video.src = lite ? 'assets/video/pezzolla-motorsport-mobile.mp4' : 'assets/video/pezzolla-motorsport.mp4';
   video.play().catch(() => {});
   soundBtn.addEventListener('click', () => {
     wantSound = !wantSound;
@@ -121,12 +128,12 @@
   }
 
   /* qualità: la risoluzione interna si adatta al tempo di calcolo, poi le ombre */
-  const MAXPX = mobile ? 1.15e6 : 2.7e6;
+  const MAXPX = mobile ? 0.9e6 : 2.7e6;
   const Q = { scale: 1, shadows: !mobile && !/noshadow/.test(location.search), lastAdj: 0, slow: 0, fast: 0 };
   renderer.setClearColor(0x0a0605);
   renderer.shadowMap.enabled = Q.shadows; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   const flags = location.search;          // ?nopost / ?noshadow: per verificare i percorsi di ripiego
-  const post = /nopost/.test(flags) ? null : PZ.createPost(renderer, { samples: /nomsaa/.test(flags) ? 0 : mobile ? 2 : 4, levels: mobile ? 4 : 5, rays: mobile ? 12 : 24, threshold: 1.4, bloom: mobile ? 0.13 : 0.2, raysK: mobile ? 0.04 : 0.08, grain: reduce ? 0.01 : 0.026, vig: 0.5, ab: 0.004 });
+  const post = /nopost/.test(flags) ? null : PZ.createPost(renderer, { samples: /nomsaa/.test(flags) ? 0 : mobile ? 2 : 4, levels: mobile ? 3 : 5, rays: mobile ? 0 : 24, threshold: 1.4, bloom: mobile ? 0.13 : 0.2, raysK: mobile ? 0.04 : 0.08, grain: reduce ? 0.01 : 0.026, vig: 0.5, ab: mobile ? 0 : 0.004 });
   if (!post) { renderer.outputEncoding = THREE.sRGBEncoding; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.1; }
 
   const scene = new THREE.Scene();
@@ -136,7 +143,7 @@
   let world = null, car = null, parked = [];
 
   function applySize() {
-    const dpr = Math.min(devicePixelRatio || 1, mobile ? 1.5 : 2);
+    const dpr = Math.min(devicePixelRatio || 1, mobile ? 1.4 : 2);
     const k = Math.min(1, Math.sqrt(MAXPX / (innerWidth * innerHeight * dpr * dpr)));      // limite sull'area totale
     const out = post ? Math.max(k, 0.7) : k * Q.scale;                                      // buffer del canvas (uscita)
     renderer.setPixelRatio(dpr * out); renderer.setSize(innerWidth, innerHeight, false);
@@ -208,43 +215,47 @@
   let mx = 0, my = 0, tmx = 0, tmy = 0, roll = 0, fov = 60, last = performance.now();
   let prevPs = 0, spdS = 0, prevSpdS = 0, brakeS = 0, steerS = 0, accelS = 0, reverse = false;
 
-  function build() {
+  const tick = () => new Promise(r => setTimeout(r, 0));       // cede il thread tra un blocco e l'altro (video e scroll restano fluidi)
+  async function build() {
     const t0 = performance.now();
-    world = PZ.buildWorld(scene, renderer, { mobile, shadows: Q.shadows, hdr: !!(post && post.hdr) });
+    world = PZ.buildWorld(scene, renderer, { mobile, lambert: mobile && !/pbr/.test(flags), shadows: Q.shadows, hdr: !!(post && post.hdr) });
     ({ S, C, R, E } = world);
+    await tick();
     car = PZ.buildCar(world, { paint: 0x1b1c1f });
     scene.add(car.group);
+    await tick();
     // vetture ferme davanti ai box
-    const paints = [[0xe9e6df, 0.35, 0.28], [0x8c5a1f, 0.6, 0.3], [0x16181c, 0.5, 0.3]];
+    const paints = [[0xe9e6df, 0.35, 0.28], [0x8c5a1f, 0.6, 0.3], [0x16181c, 0.5, 0.3]].slice(0, mobile ? 2 : 3);
     parked = paints.map(([c, m, r], i) => {
       const k = PZ.buildCar(world, { paint: c, metal: m, rough: r, lights: false });
       k.group.position.set(-27.5 + (i % 2) * 1.2, 0, -168 - i * 15);
       k.group.rotation.y = Math.PI + (i - 1) * 0.04;      // il muso verso -z, come la direzione di marcia
       scene.add(k.group); return k;
     });
+    await tick();
     buildMap();
-    applySize();
+    applySize(); calcSpd();
     readScroll(); ps = pt; prevPs = ps;
-    window.__buildMs = Math.round(performance.now() - t0);
+    window.__buildMs = Math.round(performance.now() - t0); window.__readyAt = Math.round(performance.now());
     PZ.dbg = { scene, camera, renderer, world, car, post, Q };      // maniglie per le verifiche visive
     ready = true; document.body.classList.remove('booting'); document.body.classList.add('ready');
     if (hint) hint.textContent = 'Scorri';
     requestAnimationFrame(frame);
   }
 
-  addEventListener('resize', () => { if (ready) { applySize(); readScroll(); } });
+  addEventListener('resize', () => { if (ready) { applySize(); calcSpd(); readScroll(); } });
   if (!reduce) addEventListener('pointermove', e => { tmx = e.clientX / innerWidth * 2 - 1; tmy = e.clientY / innerHeight * 2 - 1; }, { passive: true });
 
   /* qualità adattiva: ogni ~2,5 s guarda il tempo medio di fotogramma */
   let accT = 0, accN = 0;
   function adapt(dt, now) {
     accT += dt; accN++;
-    if (now - Q.lastAdj < 2500 || accN < 45) return;
+    if (now - Q.lastAdj < (mobile ? 1500 : 2500) || accN < (mobile ? 30 : 45)) return;
     const avg = accT / accN * 1000; accT = 0; accN = 0;
-    if (avg > 26) { Q.slow++; Q.fast = 0; } else if (avg < 15) { Q.fast++; Q.slow = 0; } else { Q.slow = Q.fast = 0; }
+    if (avg > (mobile ? 33 : 26)) { Q.slow++; Q.fast = 0; } else if (avg < 15) { Q.fast++; Q.slow = 0; } else { Q.slow = Q.fast = 0; }
     if (Q.slow >= 2) {
       Q.slow = 0; Q.lastAdj = now;
-      if (Q.scale > 0.62) { Q.scale = Math.max(0.6, Q.scale * 0.85); applySize(); }
+      if (Q.scale > (mobile ? 0.52 : 0.62)) { Q.scale = Math.max(mobile ? 0.5 : 0.6, Q.scale * 0.85); applySize(); }
       else if (Q.shadows) { Q.shadows = false; renderer.shadowMap.enabled = false; world.sun.castShadow = false; scene.traverse(o => { if (o.material) o.material.needsUpdate = true; }); }
     } else if (Q.fast >= 6 && Q.scale < 1) { Q.fast = 0; Q.lastAdj = now; Q.scale = Math.min(1, Q.scale * 1.08); applySize(); }
   }
@@ -254,14 +265,14 @@
     if (window.__still) { ps = pt; prevPs = ps; spdS = 0; prevSpdS = 0; brakeS = 0; accelS = 0; roll = 0; }   // hook per le verifiche visive (software GL è lento)
     const dt = Math.max(0.001, Math.min(0.05, (now - last) / 1000)); last = now;
     const k = reduce || window.__still ? 1 : 1 - Math.exp(-dt * 5);
-    const speed = Math.abs(pt - ps);
-    ps += (pt - ps) * (reduce ? 1 : 1 - Math.exp(-dt * 4));
+    const speed = Math.abs(pt - ps) * spdK;
+    ps += (pt - ps) * (reduce ? 1 : 1 - Math.exp(-dt * (mobile ? 3 : 4)));
     if (Math.abs(pt - ps) < 1e-5) ps = pt;
 
     /* velocità "di guida" dallo scroll → motore e luci dei freni */
     const dps = ps - prevPs;
-    const raw = clamp(Math.abs(dps) / dt / 0.12); prevPs = ps;
-    const signed = dps / dt / 0.12;                                       // scroll all'indietro = retromarcia (resta inserita finché non si torna avanti)
+    const raw = clamp(Math.abs(dps) / dt / 0.12 * spdK); prevPs = ps;
+    const signed = dps / dt / 0.12 * spdK;                                       // scroll all'indietro = retromarcia (resta inserita finché non si torna avanti)
     if (signed < -0.03) reverse = true; else if (signed > 0.03) reverse = false;
     spdS += (raw - spdS) * (1 - Math.exp(-dt * (raw > spdS ? 4 : 2.2)));
     const accel = (spdS - prevSpdS) / dt; prevSpdS = spdS;
@@ -284,6 +295,7 @@
     camera.lookAt(camLook);
     mx += (tmx - mx) * 0.05; my += (tmy - my) * 0.05;
     camera.rotateY(-mx * 0.05); camera.rotateX(-my * 0.025);
+    if (innerWidth / innerHeight < 0.8) camera.rotateX(-0.2);       // telefono in verticale: la vettura sale nell'inquadratura, sopra al pannello
     const bank = clamp((tA.z * tB.x - tA.x * tB.z) * 0.7, -0.14, 0.14);
     roll += (bank - roll) * 0.05; camera.rotateZ(reduce ? 0 : roll);
     const fovT = reduce ? 60 : 60 + Math.min(speed * 700, 16);
@@ -308,6 +320,7 @@
     updateUI(ps);
     paintHud(spdS, dt, pC);
 
+    const tf0 = performance.now();
     if (post) {
       const u = post.uniforms;
       u.uSun.value.copy(world.fogU.uSunScr.value); u.uSunVis.value = world.fogU.uSunScrVis.value;
@@ -316,10 +329,15 @@
       u.uExposure.value = 0.92;
       post.render(scene, camera);
     } else renderer.render(scene, camera);
+    if (!window.__f1) window.__f1 = Math.round(performance.now() - tf0);      // durata del primo fotogramma (include la compilazione degli shader)
     adapt(dt, now);
     requestAnimationFrame(frame);
   }
 
   document.body.classList.add('booting'); if (hint) hint.textContent = 'Preparo il circuito';
-  requestAnimationFrame(() => setTimeout(build, 40));
+  /* telefono: il 3D si prepara dopo che il video è partito (o entro 2,5 s), per non rubargli CPU nei primi istanti */
+  let started = false;
+  const go = () => { if (!started) { started = true; build(); } };
+  if (mobile) { video.addEventListener('playing', () => setTimeout(go, 400), { once: true }); setTimeout(go, 2500); }
+  else requestAnimationFrame(() => setTimeout(go, 40));
 })();

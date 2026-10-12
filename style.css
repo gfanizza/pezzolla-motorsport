@@ -164,8 +164,17 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);background:rg
   .sound{right:14px;bottom:70px}
   .hero-copy{bottom:20vh}
   .tel{display:none}
+  /* niente sfocature su telefono: ricomporre un canvas WebGL sfocato a ogni fotogramma è costoso */
+  .card,.lanes,.eng,.sound{backdrop-filter:none}
+  .card{background:linear-gradient(162deg,rgba(20,17,15,.9),rgba(10,9,8,.8))}
+  .card.light{background:rgba(241,238,232,.97)}
+  .lanes,.eng,.sound{background:rgba(11,9,8,.72)}
   .panel{padding-bottom:7vh}
   .card{padding:20px}
+  .lane-pick{gap:12px;margin:8px 0 10px}
+  .lane-btn{padding:16px 18px 20px}
+  .lane-btn b{font-size:1.7rem;margin-bottom:6px}
+  .lane-btn em{bottom:14px;right:18px}
   .card.wide{max-height:76vh}
   h2.md{font-size:1.4rem}
   .lead{margin-bottom:8px}
@@ -176,6 +185,23 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);background:rg
   .foot{margin-top:14px}
 }
 @media (max-height:720px){.tel{display:none}}
+/* telefono in orizzontale: poca altezza, pannelli più compatti e sotto la barra in alto */
+@media (max-height:520px){
+  .panel{padding:62px 4vw 26px}
+  .card,.card.wide{max-height:calc(100vh - 92px);overflow:auto;padding:16px 20px}
+  h2{font-size:clamp(1.4rem,8vh,2.4rem);margin-bottom:8px}
+  h2.xl{font-size:clamp(1.4rem,8vh,2.4rem)}
+  .lead{font-size:.95rem;margin-bottom:8px}
+  .card p,.cols p{font-size:12.5px}
+  .kicker{margin-bottom:8px}
+  .lane-btn{padding:14px 18px 18px}
+  .lane-btn b{font-size:1.5rem;margin-bottom:4px}
+  .cols{gap:16px}
+  form{gap:8px 14px;margin-top:8px}
+  input,select,textarea{padding:8px 10px}
+  textarea{height:44px;resize:none}
+  .foot{margin-top:10px}
+}
 @media (prefers-reduced-motion:reduce){
   .scroll-hint i,.booting .progress i,.eng.on i span{animation:none}
   .lane-btn,.cta,.lanes button,.eng,.sound{transition:none}

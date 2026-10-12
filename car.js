@@ -151,7 +151,7 @@
     for (const [r, a] of half) pts.push(new THREE.Vector2(r, -a * w));
     for (let i = 0; i <= 12; i++) { const a = -0.34 + 0.68 * i / 12; pts.push(new THREE.Vector2(R - 0.004 * Math.pow(Math.abs(a) / 0.34, 4) , a * w)); }
     for (const [r, a] of half.slice().reverse()) pts.push(new THREE.Vector2(r, a * w));
-    const tire = new THREE.LatheGeometry(pts, 48); tire.rotateZ(Math.PI / 2);
+    const tire = new THREE.LatheGeometry(pts, shared.lo ? 32 : 48); tire.rotateZ(Math.PI / 2);
     // cerchio: labbro esterno/interno, canale, 10 raggi doppi, mozzo
     const parts = [];
     for (const sx of [-1, 1]) parts.push(place(new THREE.TorusGeometry(Rr - 0.006, 0.013, 8, 40), sx * (w / 2 - 0.045), 0, 0, 0, Math.PI / 2, 0));
@@ -177,9 +177,11 @@
   PZ.buildCar = (world, o = {}) => {
     const STD = world.STD, glowTex = world.glowTex;
     const paintCol = new THREE.Color(o.paint === undefined ? 0x15161a : o.paint);
+    shared.lo = world.mobile;
     if (!shared.tx) {
-      const flake = T.flake(256); flake.repeat.set(3, 3);
-      const carbon = T.carbon(256); carbon.map.repeat.set(5, 5); carbon.normalMap.repeat.set(5, 5);
+      const lo = world.mobile;               // su telefono: texture più piccole
+      const flake = T.flake(lo ? 128 : 256); flake.repeat.set(3, 3);
+      const carbon = T.carbon(lo ? 128 : 256); carbon.map.repeat.set(5, 5); carbon.normalMap.repeat.set(5, 5);
       const hex = T.honeycomb(); hex.repeat.set(5, 2.4);
       shared.tx = { flake, carbon, hex, tread: T.tread(), glass: null };
     }

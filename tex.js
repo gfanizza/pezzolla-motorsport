@@ -67,8 +67,9 @@
       const big = fbm(u * 4, v * 4, 3, 4, 4), mid = fbm(u * 16, v * 16, 9, 3, 16);
       const f1 = hash(x, y, 5), f2 = hash(x >> 1, y >> 1, 11);
       H[k] = f1 * 0.45 + f2 * 0.35 + mid * 0.2;
-      let c = 58 + (mid - 0.5) * 34 + (big - 0.5) * 22 + (f1 - 0.5) * 22;
-      if (f1 > 0.95) c += 34 * (f2 + 0.3);                // inerti chiari
+      const soft = size <= 256 ? 0.45 : 1;          // texture piccola (telefono): meno contrasto sul granulo, altrimenti si vedono i pixel
+      let c = 58 + (mid - 0.5) * 34 + (big - 0.5) * 22 + (f1 - 0.5) * 22 * soft;
+      if (f1 > 0.95) c += 34 * (f2 + 0.3) * soft;         // inerti chiari
       else if (f1 < 0.06) c -= 22;                         // bitume scoperto
       const warm = (big - 0.5) * 6;                        // sbiadimento caldo/freddo a chiazze
       const i = k * 4;
@@ -77,12 +78,12 @@
       rg[i] = rg[i + 1] = rg[i + 2] = r * 255; rg[i + 3] = 255;
     }
     const mk = (data, o) => T.canvas(size, size, (g) => g.putImageData(new ImageData(data, size, size), 0, 0), o);
-    return { map: mk(col, { srgb: true, repeat: true }), roughnessMap: mk(rg, { repeat: true }), normalMap: T.normalFromHeight(H, size, size, 1.5) };
+    return { map: mk(col, { srgb: true, repeat: true }), roughnessMap: mk(rg, { repeat: true }), normalMap: T.normalFromHeight(H, size, size, size <= 256 ? 0.8 : 1.5) };
   };
 
   /* gomma depositata sulla traiettoria + macchie d'olio: decalcomania a tutta carreggiata (u = larghezza) */
-  T.rubber = () => T.pixels(256, 1024, (x, y, o) => {
-    const u = x / 256, v = y / 1024;
+  T.rubber = (k = 1) => T.pixels(256 * k, 1024 * k, (x, y, o) => {
+    const u = x / (256 * k), v = y / (1024 * k);
     const streak = fbm(u * 14, v * 3, 21, 3, 0) * 0.5 + hash(x, y >> 2, 7) * 0.5;
     let a = 0;
     for (const c of [0.3, 0.7]) { const d = Math.abs(u - c); a += Math.exp(-(d * d) / 0.0035) * 0.30; }     // traiettoria larga

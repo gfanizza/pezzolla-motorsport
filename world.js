@@ -51,7 +51,14 @@
       m.customProgramCacheKey = () => 'pzfog';
       return m;
     };
-    const STD = (p) => patch(new THREE.MeshStandardMaterial(p));
+    const STD = (p) => patch(new THREE.MeshStandardMaterial(p));                 // PBR completo: asfalto, guardrail, vettura
+    /* materiale "secondario": PBR su desktop; su telefono Lambert (shader molto più leggero da compilare ed eseguire) */
+    const LAMBERT = ['color', 'map', 'emissive', 'emissiveMap', 'vertexColors', 'alphaTest', 'side', 'transparent', 'opacity', 'depthWrite', 'polygonOffset', 'polygonOffsetFactor', 'polygonOffsetUnits'];
+    const LIT = (p) => {
+      if (!o.lambert) return STD(p);
+      const q = {}; for (const k of LAMBERT) if (p[k] !== undefined) q[k] = p[k];
+      return patch(new THREE.MeshLambertMaterial(q));
+    };
     const BAS = (p) => patch(new THREE.MeshBasicMaterial(p));
 
     /* ===== luci: sole basso di fronte (controluce), riempimento freddo alle spalle, cielo ===== */
@@ -92,10 +99,10 @@
           sky += vec3(1., .86, .6) * smoothstep(.99968, .99992, sd) * uSunI;         // disco solare (HDR → bloom)
           float ce = max(e, 0.);
           vec2 cp = d.xz / (ce + .1) * vec2(.9, 1.8) + vec2(uTime * .005, 0.) + vec2(4.1, 2.3);
-          float dn = fbm(cp, ${mobile ? 4 : 6});
+          float dn = fbm(cp, ${mobile ? 3 : 6});
           float cover = smoothstep(.5, .74, dn) * smoothstep(.012, .08, e) * (1. - .5 * smoothstep(.55, .95, e));
           if (cover > .002) {
-            float dn2 = fbm(cp + normalize(uSun.xz + 1e-4) * vec2(.9, 1.8) * .1, ${mobile ? 3 : 4});
+            float dn2 = fbm(cp + normalize(uSun.xz + 1e-4) * vec2(.9, 1.8) * .1, ${mobile ? 2 : 4});
             float rim = clamp((dn - dn2) * 5. + .35, 0., 1.), low = exp(-ce * 5.);
             vec3 lit = vec3(1.15, .44, .11) * (.1 + 1.6 * pow(sd, 1.5)) * (.2 + .8 * low);
             vec3 cloud = mix(vec3(.04, .026, .05) + lit * .25, lit, rim * (.3 + .7 * low));
@@ -147,8 +154,9 @@
 
     /* ===== texture condivise ===== */
     const glowTex = T.glow();
-    const asph = T.asphalt(512), grass = T.grass(512), gravel = T.gravel(256), carbon = T.carbon(256);
-    const rubberTex = T.rubber();
+    const lo = mobile;                      // su telefono: texture più piccole, meno istanze, meno segmenti
+    const asph = T.asphalt(lo ? 256 : 512), grass = T.grass(lo ? 256 : 512), gravel = T.gravel(lo ? 128 : 256);
+    const rubberTex = T.rubber(lo ? 0.5 : 1);
 
     /* ===== geometrie lungo le curve ===== */
     function frameAt(curve, u) {
@@ -237,15 +245,15 @@
     /* ===== materiali pista ===== */
     const asphalt = STD({ map: asph.map, normalMap: asph.normalMap, roughnessMap: asph.roughnessMap, roughness: 1, metalness: 0, normalScale: new THREE.Vector2(0.8, 0.8), envMapIntensity: 0.2 });
     const rubber = STD({ map: rubberTex, transparent: true, depthWrite: false, roughness: 0.42, metalness: 0, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, envMapIntensity: 0.8 });
-    const vergeMat = STD({ map: grass.map, normalMap: grass.normalMap, roughness: 1, color: 0xb8b090, envMapIntensity: 0.25 });
+    const vergeMat = LIT({ map: grass.map, normalMap: grass.normalMap, roughness: 1, color: 0xb8b090, envMapIntensity: 0.25 });
     const railMat = STD({ color: 0x9a9fa6, metalness: 0.85, roughness: 0.38, side: THREE.DoubleSide, envMapIntensity: 1.1 });
-    const postMat = STD({ color: 0x3a3c3e, metalness: 0.5, roughness: 0.6 });
-    const poleMat = STD({ color: 0x34363a, metalness: 0.6, roughness: 0.5, envMapIntensity: 0.8 });
+    const postMat = LIT({ color: 0x3a3c3e, metalness: 0.5, roughness: 0.6 });
+    const poleMat = LIT({ color: 0x34363a, metalness: 0.6, roughness: 0.5, envMapIntensity: 0.8 });
     const lampMat = BAS({ color: new THREE.Color(3.2, 2.3, 1.4) });
-    const dashMat = STD({ color: 0xe9e6dd, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
-    const tireDark = STD({ color: 0x131313, roughness: 0.92, normalMap: T.tread(), normalScale: new THREE.Vector2(1, 1) });
-    const tireWhite = STD({ color: 0xcfcdc6, roughness: 0.8 });
-    const gravelMat = STD({ map: gravel.map, normalMap: gravel.normalMap, roughness: 1, normalScale: new THREE.Vector2(1.6, 1.6) });
+    const dashMat = LIT({ color: 0xe9e6dd, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+    const tireDark = LIT({ color: 0x131313, roughness: 0.92, normalMap: T.tread(), normalScale: new THREE.Vector2(1, 1) });
+    const tireWhite = LIT({ color: 0xcfcdc6, roughness: 0.8 });
+    const gravelMat = LIT({ map: gravel.map, normalMap: gravel.normalMap, roughness: 1, normalScale: new THREE.Vector2(1.6, 1.6) });
     const adTex = T.canvas(1024, 128, (g, w, h) => {
       g.fillStyle = '#0b0a09'; g.fillRect(0, 0, w, h); g.fillStyle = '#f5b335'; g.fillRect(0, 0, w, 6); g.fillRect(0, h - 6, w, 6);
       g.textBaseline = 'middle'; g.textAlign = 'left';
@@ -274,12 +282,12 @@
     const poolMat = new THREE.MeshBasicMaterial({ map: glowTex, color: new THREE.Color(1.5, 0.82, 0.38), transparent: true, opacity: 0.55, depthWrite: false, blending: THREE.AdditiveBlending, fog: false });
 
     function buildTrack(curve, key, railFrom, yOff) {
-      const len = curve.getLength(), n = Math.max(40, Math.floor(len / 2.5)), y0 = yOff || 0;
+      const len = curve.getLength(), n = Math.max(40, Math.floor(len / (lo ? 4 : 2.5))), y0 = yOff || 0;
       const vm = strip(curve, n, -(W / 2 + 9.5), 19, -0.03 + y0, vergeMat, 10, 10);
       strip(curve, n, (W / 2 + 9.5), 19, -0.03 + y0, vergeMat, 10, 10);
       const road = strip(curve, n, 0, W, y0, asphalt, 6, 6); road.renderOrder = 0;
       const rub = strip(curve, n, 0, W, 0.012 + y0, rubber, 26, 0); rub.renderOrder = 1; rub.receiveShadow = true;
-      const edgeMat = STD({ color: 0xf2f0ea, roughness: 0.62, transparent: true, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
+      const edgeMat = LIT({ color: 0xf2f0ea, roughness: 0.62, transparent: true, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 });
       strip(curve, n, -(W / 2 - 0.4), 0.3, 0.018 + y0, edgeMat);
       strip(curve, n, (W / 2 - 0.4), 0.3, 0.018 + y0, edgeMat);
       if (key) laneMats[key].push(edgeMat);
@@ -287,7 +295,7 @@
       const dashes = []; samples(curve, 9, 0, dashes, 0, 1, y0); instanced(dashGeo, dashMat, dashes, { receive: true, far: 300 });
 
       /* lampioni: palo, braccio, testa luminosa, alone e macchia di luce a terra */
-      const poles = []; samples(curve, 44, W / 2 + 8, poles); samples(curve, 44, -(W / 2 + 8), poles);
+      const poles = [], ps2 = lo ? 66 : 44; samples(curve, ps2, W / 2 + 8, poles); samples(curve, ps2, -(W / 2 + 8), poles);
       const lamps = [];
       poles.forEach(p => {
         // il braccio guarda la strada: orientamento lungo la normale verso il centro
@@ -302,22 +310,22 @@
       instanced(headGeo, lampMat, lamps, { far: 520 });
 
       /* guardrail a W con paletti */
-      const u0 = railFrom || 0, rn = Math.max(30, Math.floor(len * (1 - u0) / 2));
+      const u0 = railFrom || 0, rn = Math.max(30, Math.floor(len * (1 - u0) / (lo ? 4 : 2)));
       for (const sg of [-1, 1]) sweep(curve, rn, sg, W / 2 + 6, WBEAM, railMat, u0, 1, 6);
-      for (const sg of [-1, 1]) { const ad = sweep(curve, Math.max(30, Math.floor(len * (1 - u0) / 3)), sg, W / 2 + 6.45, [[0, 0.9, 0], [0, 1.7, 1]], adMat, u0, 1, 11, sg > 0); ad.castShadow = false; }   // pannelli pubblicitari dietro i guardrail (testo leggibile da chi guida: u invertito a destra)
-      const posts = []; samples(curve, 4, W / 2 + 6, posts, u0); samples(curve, 4, -(W / 2 + 6), posts, u0);
+      for (const sg of [-1, 1]) { const ad = sweep(curve, Math.max(30, Math.floor(len * (1 - u0) / (lo ? 6 : 3))), sg, W / 2 + 6.45, [[0, 0.9, 0], [0, 1.7, 1]], adMat, u0, 1, 11, sg > 0); ad.castShadow = false; }   // pannelli pubblicitari dietro i guardrail (testo leggibile da chi guida: u invertito a destra)
+      const posts = [], pst = lo ? 6 : 4; samples(curve, pst, W / 2 + 6, posts, u0); samples(curve, pst, -(W / 2 + 6), posts, u0);
       instanced(postGeo, postMat, posts.map(p => ({ ...p, t: p.s })), { cast: true, far: 380, shadowR: 110 });
 
       {   // cordoli
-        const cm = STD({ color: 0xffffff, roughness: 0.55, transparent: !!key, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
-        const cb = []; samples(curve, 2.4, W / 2 + 0.75, cb, 0, 1, y0); samples(curve, 2.4, -(W / 2 + 0.75), cb, 0, 1, y0);
+        const cm = LIT({ color: 0xffffff, roughness: 0.55, transparent: !!key, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 });
+        const cb = [], cst = lo ? 3.4 : 2.4; samples(curve, cst, W / 2 + 0.75, cb, 0, 1, y0); samples(curve, cst, -(W / 2 + 0.75), cb, 0, 1, y0);
         cb.forEach(o2 => { o2.c = o2.i % 2 ? white : warm; });
         instanced(curbGeo, cm, cb, { receive: true, far: 380 });
         if (key) laneMats[key].push(cm);
       }
 
       /* muri di gomme + ghiaia all'esterno delle curve */
-      const tires = [], gr = [], tn = Math.floor(len / 3.4);
+      const tires = [], gr = [], tn = Math.floor(len / (lo ? 5 : 3.4));
       for (let i = 0; i < tn; i++) {
         const u = (i + 0.5) / tn, sg = outerSign(curve, u);
         if (!sg || u < (railFrom || 0)) continue;
@@ -354,7 +362,7 @@
 
     /* ===== terreno: pianeggiante vicino alla pista, colline lontane ===== */
     {
-      const N = mobile ? 130 : 220, SZ = 3600, TILE = 14;
+      const N = lo ? 100 : 220, SZ = 3600, TILE = 14;
       const g = new THREE.PlaneGeometry(SZ, SZ, N, N); g.rotateX(-Math.PI / 2); g.translate(0, 0, -560);
       const tp = [];
       [S, C, R, E, X].forEach(c => { const n = Math.ceil(c.getLength() / 10); for (let i = 0; i <= n; i++) { const p = c.getPointAt(i / n); tp.push(p.x, p.z); } });
@@ -371,7 +379,7 @@
         col[i * 3] = k2 * (0.74 + 0.2 * m); col[i * 3 + 1] = k2 * 0.92; col[i * 3 + 2] = k2 * 0.5;
       }
       g.setAttribute('uv', new THREE.BufferAttribute(uv, 2)); g.setAttribute('color', new THREE.BufferAttribute(col, 3)); g.computeVertexNormals();
-      const ter = new THREE.Mesh(g, STD({ map: grass.map, normalMap: grass.normalMap, vertexColors: true, roughness: 1, normalScale: new THREE.Vector2(1.3, 1.3), envMapIntensity: 0.1 }));
+      const ter = new THREE.Mesh(g, LIT({ map: grass.map, normalMap: grass.normalMap, vertexColors: true, roughness: 1, normalScale: new THREE.Vector2(1.3, 1.3), envMapIntensity: 0.1 }));
       ter.receiveShadow = true; scene.add(ter);
     }
 
@@ -403,7 +411,7 @@
     const cypress = merge([blob(0.9, 5.4, 0.9, 2, 5.4, 3, (k, nz) => [0.03 + 0.05 * k * nz, 0.07 + 0.09 * k * nz, 0.03 + 0.03 * k], 0.55), trunk(0.8, 0.12, 0)]);
     const pine = merge([blob(5.2, 1.7, 5.2, 2, 11.4, 5, (k, nz) => [0.05 + 0.06 * k * nz, 0.09 + 0.1 * k * nz, 0.04 + 0.03 * k], 0.7), trunk(10.5, 0.34, 0), blob(3.2, 1.2, 3.2, 1, 12.6, 9, (k, nz) => [0.07 + 0.05 * k, 0.11 + 0.09 * k, 0.04], 0.6)]);
     const bush = merge([blob(2.4, 1.7, 2.4, 2, 1.5, 7, (k, nz) => [0.07 + 0.08 * k * nz, 0.1 + 0.1 * k * nz, 0.04 + 0.03 * k], 0.8)]);
-    const treeMat = STD({ vertexColors: true, roughness: 0.95, metalness: 0, envMapIntensity: 0.5 });
+    const treeMat = LIT({ vertexColors: true, roughness: 0.95, metalness: 0, envMapIntensity: 0.5 });
     {
       const buckets = { cy: [], pi: [], bu: [] }, tooClose = (x, z, r) => { for (let k = 0; k < allPts.length; k += 2) { const dx = allPts[k] - x, dz = allPts[k + 1] - z; if (dx * dx + dz * dz < r * r) return true; } return false; };
       [S, C, R, E, X].forEach(c => {
@@ -432,7 +440,8 @@
       /* uliveti: file regolari di ulivi (grigio-verdi, bassi) a macchie, come nelle campagne pugliesi */
       const olive = merge([blob(2.1, 1.35, 2.1, 1, 1.6, 11, (k, nz) => [0.09 + 0.07 * k * nz, 0.115 + 0.09 * k * nz, 0.07 + 0.04 * k], 0.75), trunk(1.2, 0.2, 0)]);
       const ol = [], clear = (x, z) => x > -62 && x < 70 && z < -20 && z > -250;      // tribuna, box e auto ferme
-      for (let gx = -340; gx <= 340; gx += 9) for (let gz = 50; gz >= -1300; gz -= 9) {
+      const gst = lo ? 15 : 9;
+      for (let gx = -340; gx <= 340; gx += gst) for (let gz = 50; gz >= -1300; gz -= gst) {
         const x = gx + rnd(-1.4, 1.4), z = gz + rnd(-1.4, 1.4);
         if (T.fbm(x / 170 + 3, z / 170 + 7, 29, 3) < 0.57 || clear(x, z) || tooClose(x, z, W / 2 + 30)) continue;
         ol.push({ x, z, ry: R01() * 6, sx: rnd(0.85, 1.25), sy: rnd(0.85, 1.2) });
@@ -456,7 +465,7 @@
       const uvs = new Float32Array(tuftGeo.attributes.position.count * 2);
       for (let q = 0; q < 2; q++) for (let k = 0; k < 4; k++) uvs.set([k % 2, k < 2 ? 1 : 0], (q * 4 + k) * 2);
       tuftGeo.setAttribute('uv', new THREE.BufferAttribute(uvs, 2));
-      const tuftMat = STD({ map: tex, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 1, vertexColors: true, envMapIntensity: 0.6, emissive: 0x2a2410, emissiveMap: tex });
+      const tuftMat = LIT({ map: tex, alphaTest: 0.5, alphaToCoverage: true, side: THREE.DoubleSide, roughness: 1, vertexColors: true, envMapIntensity: 0.6, emissive: 0x2a2410, emissiveMap: tex });
       const items = [];
       [S, C, R, E, X].forEach(c => {
         const n = Math.floor(c.getLength() * 0.4);
@@ -476,7 +485,7 @@
       const panelGeo = new THREE.BoxGeometry(7, 3, 0.5); panelGeo.translate(0, 25.2, 0);
       const lampsTex = T.canvas(256, 96, (g, w, h) => { g.fillStyle = '#10100f'; g.fillRect(0, 0, w, h); g.fillStyle = '#fff'; for (let r = 0; r < 3; r++) for (let c = 0; c < 8; c++) { g.beginPath(); g.arc(18 + c * 31, 18 + r * 30, 11, 0, 7); g.fill(); } }, { srgb: true });
       const panelMat = patch(new THREE.MeshBasicMaterial({ map: lampsTex, color: new THREE.Color(3, 2.5, 1.9) }));
-      const mastMat = STD({ color: 0x3b3d40, metalness: 0.7, roughness: 0.5 });
+      const mastMat = LIT({ color: 0x3b3d40, metalness: 0.7, roughness: 0.5 });
       const mastItems = towers.map(([x, z]) => ({ x, z }));
       instanced(mastGeo, mastMat, mastItems, { cast: true, far: 900, shadowR: 160 });
       towers.forEach(([x, z]) => {
@@ -493,11 +502,14 @@
         g.fillStyle = '#fff'; g.font = '400 220px Georgia, "Times New Roman", serif'; g.textAlign = 'center'; g.textBaseline = 'middle';
         if ('letterSpacing' in g) g.letterSpacing = '14px';
         g.fillText('MOTORSPORT ROOM', w / 2, h / 2 + 8);
-        const img = g.getImageData(0, 0, w, h), d = img.data;
-        for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const i = (y * w + x) * 4; d[i + 3] *= 0.5 + 0.5 * T.fbm(x / 28, y / 28, 3, 3); }
-        g.putImageData(img, 0, 0);
+        // consumo della vernice: maschera di rumore a 1/8 della risoluzione, scalata sopra la scritta (molto più leggero di un ciclo per pixel)
+        const mw = w >> 3, mh = h >> 3, mk = document.createElement('canvas'); mk.width = mw; mk.height = mh;
+        const mg = mk.getContext('2d'), mi = mg.createImageData(mw, mh);
+        for (let y = 0; y < mh; y++) for (let x = 0; x < mw; x++) { const i = (y * mw + x) * 4; mi.data[i] = mi.data[i + 1] = mi.data[i + 2] = 255; mi.data[i + 3] = (0.5 + 0.5 * T.fbm(x / 3.5, y / 3.5, 3, 3)) * 255; }
+        mg.putImageData(mi, 0, 0);
+        g.globalCompositeOperation = 'destination-in'; g.imageSmoothingEnabled = true; g.drawImage(mk, 0, 0, w, h); g.globalCompositeOperation = 'source-over';
       }, { srgb: true });
-      const m = new THREE.Mesh(new THREE.PlaneGeometry(15.5, 3.0), STD({ map: tex, transparent: true, depthWrite: false, roughness: 0.6, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      const m = new THREE.Mesh(new THREE.PlaneGeometry(15.5, 3.0), LIT({ map: tex, transparent: true, depthWrite: false, roughness: 0.6, opacity: 0.9, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
       const f = frameAt(S, 0.205);
       m.rotation.x = -Math.PI / 2; m.position.set(f.p.x, 0.03, f.p.z); m.renderOrder = 3; m.receiveShadow = true;
       m.rotateOnWorldAxis(V(0, 1, 0), -Math.atan2(f.t.x, -f.t.z));
@@ -505,12 +517,12 @@
     }
     {   // tribuna
       const stand = new THREE.Group(), L = 96, rows = 14, step = 0.46, depth = 0.95;
-      const conc = STD({ color: 0x4a4944, roughness: 0.92, envMapIntensity: 0.4 });
+      const conc = LIT({ color: 0x4a4944, roughness: 0.92, envMapIntensity: 0.4 });
       for (let r = 0; r < rows; r++) {
         const h = (r + 1) * step, b = new THREE.Mesh(new THREE.BoxGeometry(L, h, depth), conc);
         b.position.set(0, h / 2, -r * depth); b.castShadow = true; b.receiveShadow = true; stand.add(b);
       }
-      const roofMat = STD({ color: 0x1d1d1c, metalness: 0.6, roughness: 0.55 });
+      const roofMat = LIT({ color: 0x1d1d1c, metalness: 0.6, roughness: 0.55 });
       const roof = new THREE.Mesh(new THREE.BoxGeometry(L + 3, 0.35, rows * depth + 3), roofMat);
       roof.position.set(0, 9.2, -(rows - 1) * depth / 2 + 0.6); roof.rotation.x = 0.05; roof.castShadow = true; stand.add(roof);
       for (let i = 0; i <= 8; i++) { const p = new THREE.Mesh(new THREE.BoxGeometry(0.3, 9, 0.3), roofMat); p.position.set(-L / 2 + i * L / 8, 4.5, -rows * depth + 0.2); p.castShadow = true; stand.add(p); }
@@ -519,8 +531,8 @@
       // pubblico
       const bodyGeo = new THREE.BoxGeometry(0.42, 0.55, 0.3), headGeo2 = new THREE.IcosahedronGeometry(0.15, 0);
       const people = [], palette = [0xe8704a, 0xf5b335, 0xf2f1ee, 0x2b3a55, 0x9a2a22, 0x1a1a1a, 0x7aa0d8, 0xcfa070].map(c => new THREE.Color(c));
-      for (let r = 0; r < rows; r++) for (let x = -L / 2 + 0.6; x < L / 2 - 0.4; x += 0.62) if (R01() < 0.72) people.push({ x: x + rnd(-0.08, 0.08), y: (r + 1) * step + 0.28, z: -r * depth + 0.05, c: palette[(R01() * palette.length) | 0], h: r });
-      const pm = STD({ roughness: 0.85, envMapIntensity: 0.3 }), hm = STD({ color: 0xc89c80, roughness: 0.8, envMapIntensity: 0.3 });
+      for (let r = 0; r < rows; r++) for (let x = -L / 2 + 0.6; x < L / 2 - 0.4; x += 0.62) if (R01() < (lo ? 0.4 : 0.72)) people.push({ x: x + rnd(-0.08, 0.08), y: (r + 1) * step + 0.28, z: -r * depth + 0.05, c: palette[(R01() * palette.length) | 0], h: r });
+      const pm = LIT({ roughness: 0.85, envMapIntensity: 0.3 }), hm = LIT({ color: 0xc89c80, roughness: 0.8, envMapIntensity: 0.3 });
       const pb = new THREE.InstancedMesh(bodyGeo, pm, people.length), ph = new THREE.InstancedMesh(headGeo2, hm, people.length);
       people.forEach((q, k) => {
         dummy.position.set(q.x, q.y, q.z); dummy.rotation.set(0, 0, 0); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); pb.setMatrixAt(k, dummy.matrix); pb.setColorAt(k, q.c);
@@ -550,9 +562,9 @@
         for (let i = 0; i < 22; i++) { g.fillStyle = R01() < 0.82 ? '#ffd9a0' : '#4a3a24'; g.fillRect(34 + i * 92, 26, 54, 44); }
         g.fillStyle = '#f5b335'; g.fillRect(0, 92, w, 6);
       }, { srgb: true });
-      const fac = new THREE.Mesh(new THREE.PlaneGeometry(68, 8.5), STD({ map: alb, emissiveMap: emi, emissive: new THREE.Color(2.2, 2.1, 2), roughness: 0.8, envMapIntensity: 0.4 }));
+      const fac = new THREE.Mesh(new THREE.PlaneGeometry(68, 8.5), LIT({ map: alb, emissiveMap: emi, emissive: new THREE.Color(2.2, 2.1, 2), roughness: 0.8, envMapIntensity: 0.4 }));
       fac.rotation.y = Math.PI / 2; fac.position.set(-37.9, 4.4, -195); scene.add(fac);
-      const bld = new THREE.Mesh(new THREE.BoxGeometry(16, 9, 68), STD({ color: 0x131314, roughness: 0.9 }));
+      const bld = new THREE.Mesh(new THREE.BoxGeometry(16, 9, 68), LIT({ color: 0x131314, roughness: 0.9 }));
       bld.position.set(-46, 4.5, -195); bld.castShadow = true; bld.receiveShadow = true; scene.add(bld);
       const sign = T.canvas(1024, 160, (g, w, h) => {
         g.fillStyle = '#0a0a09'; g.fillRect(0, 0, w, h); g.strokeStyle = '#f5b335'; g.lineWidth = 6; g.strokeRect(6, 6, w - 12, h - 12);
@@ -564,7 +576,7 @@
     }
 
     /* ===== portali (partenza, bivio con indicazioni, traguardo) ===== */
-    const gantryMat = STD({ color: 0xd9d8d2, metalness: 0.7, roughness: 0.4 });
+    const gantryMat = LIT({ color: 0xd9d8d2, metalness: 0.7, roughness: 0.4 });
     const ledMat = new THREE.MeshBasicMaterial({ color: new THREE.Color(4, 2.5, 0.8) });
     function signTex(text, sub, arrow) {
       return T.canvas(1024, 256, (g, w, h) => {
@@ -597,7 +609,7 @@
     {
       const tex = T.canvas(256, 32, (g) => { for (let x = 0; x < 32; x++) for (let y = 0; y < 4; y++) { g.fillStyle = (x + y) % 2 ? '#f4f2ec' : '#0b0b0b'; g.fillRect(x * 8, y * 8, 8, 8); } }, { srgb: true });
       tex.magFilter = THREE.NearestFilter; tex.anisotropy = 8;
-      const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, 2.4), STD({ map: tex, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
+      const plane = new THREE.Mesh(new THREE.PlaneGeometry(W, 2.4), LIT({ map: tex, roughness: 0.7, polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4 }));
       const p = E.getPointAt(0.35); plane.rotation.x = -Math.PI / 2; plane.position.set(p.x, 0.035, p.z); plane.receiveShadow = true; scene.add(plane);
     }
 
@@ -635,7 +647,7 @@
     const starsObj = scene.getObjectByName('stars');
     const fwd = V(0, 0, -1), snapP = V(0, 0, 0), right = V(0, 0, 0), upL = V(0, 0, 0), tmp = V(0, 0, 0), up = V(0, 1, 0);
     const world = {
-      S, C, R, E, W, boards, laneMats, envTex, sunSky, sunDir, sun, fogU, skyU, scene, patch, STD, BAS, glowTex, T, merge, frameAt, instanced,
+      S, C, R, E, W, boards, laneMats, envTex, mobile, sunSky, sunDir, sun, fogU, skyU, scene, patch, STD, BAS, glowTex, T, merge, frameAt, instanced,
       /* camera: ricollocare cielo, luci con ombra agganciata alla griglia, nuvole, pulviscolo e visibilità dei gruppi */
       update(dt, camera, time, targetPos, reduce) {
         sky.position.copy(camera.position); skyU.uTime.value = time;
